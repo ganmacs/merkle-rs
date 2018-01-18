@@ -6,6 +6,12 @@ pub trait Digestible {
     fn as_ref(&self) -> &[u8];
 }
 
+impl Digestible for [u8] {
+    fn as_ref(&self) -> &[u8] {
+        convert::AsRef::as_ref(self)
+    }
+}
+
 impl Digestible for Vec<u8> {
     fn as_ref(&self) -> &[u8] {
         convert::AsRef::as_ref(self)
