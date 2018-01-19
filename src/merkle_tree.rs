@@ -8,14 +8,14 @@ use partitioner::{IPartitioner, Partitioner};
 
 #[derive(Clone, Debug)]
 pub struct MerkleTree<T> {
-    root: Option<Node>,
+    root: Option<Node<T>>,
     count: usize,
     depth: usize,
     range: Range<T>,
 }
 
 impl<T> MerkleTree<T> {
-    pub fn new<S, V>(range: Range<T>, v: Vec<RowHash<T, V>>, depth: f64) -> Self
+    pub fn new<V, S>(range: Range<T>, v: Vec<RowHash<T, V>>, depth: f64) -> Self
     where
         T: Token<S>,
         V: Digestible,
@@ -35,10 +35,11 @@ impl<T> MerkleTree<T> {
         P: Partitioner<T, S>,
         T: Token<S>,
     {
-        self.root = Some(self.build_range(&self.range, 0, partitioner));
+        self.root = Some(self.build_node(&self.range, 0, partitioner));
+        let v = self.build_node(&self.range, 0, partitioner);
     }
 
-    pub fn build_range<S, P>(&self, range: &Range<T>, depth: usize, partitioner: &P) -> Node
+    pub fn build_node<P, S>(&self, range: &Range<T>, depth: usize, partitioner: &P) -> Node<T>
     where
         T: Token<S>,
         P: Partitioner<T, S>,
@@ -46,9 +47,11 @@ impl<T> MerkleTree<T> {
         match partitioner.call(&range) {
             None => Node::empty_leaf(),
             Some((l, r)) => {
-                let ll = self.build_range(&l, depth + 1, partitioner);
-                let rr = self.build_range(&r, depth + 1, partitioner);
-                Node::new_node(ll, rr)
+                // left: left <= X <= mid
+                let ll = self.build_node(&l, depth + 1, partitioner);
+                // right: mid < X <= right
+                let rr = self.build_node(&r, depth + 1, partitioner);
+                Node::new_node(l.end, ll, rr)
             }
         }
     }

@@ -1,59 +1,47 @@
-use digest::{Digestible, digest, digest2};
+use digest::{Digestible, digest};
 
 #[derive(Clone, Debug)]
-pub enum Node {
+pub enum Node<T> {
     Leaf { hash: Vec<u8> },
     Inner {
-        hash: Vec<u8>,
-        left: Box<Node>,
-        right: Box<Node>,
+        token: T,
+        left: Box<Node<T>>,
+        right: Box<Node<T>>,
     },
 }
 
-impl Node {
+impl<T> Node<T> {
     pub fn empty_leaf() -> Self {
-        Node::Leaf { hash: digest(&vec![0]) }
+        Node::Leaf { hash: digest(&vec![]) }
     }
 
-    pub fn new_leaf<T>(value: T) -> Self
+    pub fn new_leaf(value: T) -> Self
     where
         T: Digestible,
     {
         Node::Leaf { hash: digest(&value) }
     }
 
-    pub fn new_node(left: Self, right: Self) -> Self {
-        let hash = {
-            let lh = left.hash();
-            let rh = right.hash();
-            digest2(lh, rh)
-        };
-
+    pub fn new_node(token: T, left: Self, right: Self) -> Self {
         Node::Inner {
-            hash: hash,
+            token: token,
             left: Box::new(left),
             right: Box::new(right),
         }
     }
 
-    pub fn left(&self) -> Option<&Node> {
+
+    pub fn left(&self) -> Option<&Self> {
         match self {
             &Node::Leaf { .. } => None,
             &Node::Inner { ref left, .. } => Some(left),
         }
     }
 
-    pub fn right(&self) -> Option<&Node> {
+    pub fn right(&self) -> Option<&Self> {
         match self {
             &Node::Leaf { .. } => None,
             &Node::Inner { ref right, .. } => Some(right),
-        }
-    }
-
-    pub fn hash(&self) -> &Vec<u8> {
-        match self {
-            &Node::Leaf { ref hash, .. } => hash,
-            &Node::Inner { ref hash, .. } => hash,
         }
     }
 }
