@@ -1,13 +1,17 @@
 use std::ops::Range;
 use token::{Token, IntegerToken};
 
-pub trait Partitioner<T: Token<S>, S> {
-    fn call(&self, range: &Range<T>) -> Option<(Range<T>, Range<T>)>;
+pub trait Partitioner {
+    type Token: Token;
+
+    fn call(&self, range: &Range<Self::Token>) -> Option<(Range<Self::Token>, Range<Self::Token>)>;
 }
 
 pub struct IPartitioner {}
 
-impl Partitioner<IntegerToken, u64> for IPartitioner {
+impl Partitioner for IPartitioner {
+    type Token = IntegerToken;
+
     fn call(
         &self,
         range: &Range<IntegerToken>,

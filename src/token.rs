@@ -1,20 +1,22 @@
 use std::cmp::Ordering;
 
-pub trait Token<T> {
+pub trait Token {
+    type V;
+
     fn value(&self) -> u64;
     fn midpoint(&self, other: &Self) -> Self
     where
-        Self: Token<T> + Sized;
+        Self: Sized;
 }
 
-impl<T> PartialOrd for Token<T> {
-    fn partial_cmp(&self, other: &Token<T>) -> Option<Ordering> {
+impl<T> PartialOrd for Token<V = T> {
+    fn partial_cmp(&self, other: &Token<V = T>) -> Option<Ordering> {
         Some(self.value().cmp(&other.value()))
     }
 }
 
-impl<T> PartialEq for Token<T> {
-    fn eq(&self, other: &Token<T>) -> bool {
+impl<T> PartialEq for Token<V = T> {
+    fn eq(&self, other: &Token<V = T>) -> bool {
         self.value() == other.value()
     }
 }
@@ -30,15 +32,14 @@ impl IntegerToken {
     }
 }
 
-impl Token<u64> for IntegerToken {
+impl Token for IntegerToken {
+    type V = u64;
+
     fn value(&self) -> u64 {
         self.value as u64
     }
 
-    fn midpoint(&self, other: &Self) -> Self
-    where
-        Self: Token<u64> + Sized,
-    {
+    fn midpoint(&self, other: &Self) -> Self {
         IntegerToken { value: (self.value + other.value()) / 2 }
     }
 }

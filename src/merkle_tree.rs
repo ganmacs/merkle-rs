@@ -15,9 +15,9 @@ pub struct MerkleTree<T> {
 }
 
 impl<T> MerkleTree<T> {
-    pub fn new<V, S>(range: Range<T>, v: Vec<RowHash<T, V>>, depth: f64) -> Self
+    pub fn new<V>(range: Range<T>, v: Vec<RowHash<T, V>>, depth: f64) -> Self
     where
-        T: Token<S>,
+        T: Token,
         V: Digestible,
     {
         let size = depth.log2() as usize;
@@ -30,21 +30,21 @@ impl<T> MerkleTree<T> {
         }
     }
 
-    pub fn build<P, S>(mut self, partitioner: &P)
+    pub fn build<P>(mut self, partitioner: &P)
     where
-        P: Partitioner<T, S>,
-        T: Token<S>,
+        P: Partitioner<Token = T>,
+        T: Token,
     {
         self.root = Some(self.build_node(&self.range, 0, partitioner));
         let v = self.build_node(&self.range, 0, partitioner);
     }
 
-    pub fn build_node<P, S>(&self, range: &Range<T>, depth: usize, partitioner: &P) -> Node<T>
+    pub fn build_node<P>(&self, range: &Range<T>, depth: usize, partitioner: &P) -> Node<T>
     where
-        T: Token<S>,
-        P: Partitioner<T, S>,
+        T: Token,
+        P: Partitioner<Token = T>,
     {
-        match partitioner.call(&range) {
+        match partitioner.call(range) {
             None => Node::empty_leaf(),
             Some((l, r)) => {
                 // left: left <= X <= mid

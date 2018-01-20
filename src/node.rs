@@ -30,7 +30,6 @@ impl<T> Node<T> {
         }
     }
 
-
     pub fn left(&self) -> Option<&Self> {
         match self {
             &Node::Leaf { .. } => None,
