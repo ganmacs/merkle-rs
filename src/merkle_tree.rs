@@ -14,17 +14,12 @@ pub struct MerkleTree<T> {
     range: Range<T>,
 }
 
-impl<T> MerkleTree<T> {
-    pub fn new<V>(range: Range<T>, v: Vec<RowHash<T, V>>, depth: f64) -> Self
-    where
-        T: Token,
-        V: Digestible,
-    {
-        let size = depth.log2() as usize;
-
+impl<T: Token + Clone + PartialOrd> MerkleTree<T> {
+    pub fn new(range: Range<T>, depth: f64) -> Self {
+        // let size = depth.log2() as usize;
         MerkleTree {
             root: None,
-            count: v.len(),
+            count: 0,
             depth: depth as usize,
             range: range,
         }
@@ -33,15 +28,12 @@ impl<T> MerkleTree<T> {
     pub fn build<P>(mut self, partitioner: &P)
     where
         P: Partitioner<Token = T>,
-        T: Token,
     {
         self.root = Some(self.build_node(&self.range, 0, partitioner));
-        let v = self.build_node(&self.range, 0, partitioner);
     }
 
     pub fn build_node<P>(&self, range: &Range<T>, depth: usize, partitioner: &P) -> Node<T>
     where
-        T: Token,
         P: Partitioner<Token = T>,
     {
         match partitioner.call(range) {
@@ -51,9 +43,29 @@ impl<T> MerkleTree<T> {
                 let ll = self.build_node(&l, depth + 1, partitioner);
                 // right: mid < X <= right
                 let rr = self.build_node(&r, depth + 1, partitioner);
-                Node::new_node(l.end, ll, rr)
+                Node::new_node(l.end, range.clone(), ll, rr)
             }
         }
+    }
+
+    pub fn insert_all<V>(&mut self, rows: Vec<RowHash<T, V>>)
+    where
+        V: Digestible,
+    {
+        for v in rows {
+            self.insert(v)
+        }
+    }
+
+    // return Result?
+    pub fn insert<V>(&mut self, row: RowHash<T, V>)
+    where
+        V: Digestible,
+    {
+        match self.root {
+            None => (),
+            Some(ref mut v) => v.find_and_update(&row),
+        };
     }
 
     pub fn depth(&self) -> usize {
@@ -81,7 +93,7 @@ fn test_height_of_tree() {
         end: IntegerToken::new(10),
     };
 
-    let v = MerkleTree::new(r, v, 5.0);
+    let v = MerkleTree::new(r, 5.0);
     v.build(&IPartitioner {});
 
     // let v0 = vec![Token::new(1)];

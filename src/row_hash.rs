@@ -1,12 +1,14 @@
 use digest::Digestible;
 
-pub struct RowHash<T, S: Digestible> {
-    key: T,
-    value: S,
+// #[derive(Clone, Debug)]
+// XXX: HashMap?
+pub struct RowHash<T, V: Digestible> {
+    pub key: T,
+    pub value: V,
 }
 
-impl<T, S: Digestible> RowHash<T, S> {
-    pub fn new(key: T, value: S) -> Self {
+impl<T, V: Digestible> RowHash<T, V> {
+    pub fn new(key: T, value: V) -> Self {
         RowHash {
             key: key,
             value: value,

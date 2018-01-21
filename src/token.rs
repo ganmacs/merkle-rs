@@ -21,7 +21,7 @@ impl<T> PartialEq for Token<V = T> {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, PartialOrd)]
 pub struct IntegerToken {
     value: u64,
 }
