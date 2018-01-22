@@ -43,3 +43,14 @@ impl Token for IntegerToken {
         IntegerToken { value: (self.value + other.value()) / 2 }
     }
 }
+
+
+#[test]
+fn test_integer_cmp() {
+    let a1 = IntegerToken { value: 1 };
+    let a1_1 = IntegerToken { value: 1 };
+    let a2 = IntegerToken { value: 2 };
+
+    assert!(a2 > a1);
+    assert!(a1_1 == a1);
+}
