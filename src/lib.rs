@@ -2,7 +2,7 @@ extern crate ring;
 
 mod digest;
 mod node;
-mod row_hash;
-mod partitioner;
+pub mod partitioner;
+pub mod row_hash;
 pub mod token;
 pub mod merkle_tree;

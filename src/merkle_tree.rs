@@ -30,6 +30,7 @@ impl<T: Token + Clone + PartialOrd> MerkleTree<T> {
         P: Partitioner<Token = T>,
     {
         self.root = Some(self.build_node(&self.range, 0, partitioner));
+        self.insert_all(rows);
     }
 
     pub fn build_node<P>(&self, range: &Range<T>, depth: usize, partitioner: &P) -> Node<T>

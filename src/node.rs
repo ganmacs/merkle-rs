@@ -55,8 +55,11 @@ impl<T: Token + PartialOrd> Node<T> {
                 ref mut right,
                 ref token,
             } => {
-                if &range.start <= token && token < &range.end {
+                if &range.start <= tkn && tkn <= token {
                     left.inner_find_mut(tkn, value);
+                }
+
+                if token < tkn && tkn <= &range.end {
                     right.inner_find_mut(tkn, value);
                 }
             }
