@@ -1,42 +1,55 @@
-use std::ops::Range;
-use std::fmt;
+use node::{NodeRange, Node};
+use digestible::Digestible;
 
-use merkle_tree::MerkleTree;
-use token::Token;
-use node::Node;
+pub fn build(origin: &Node, replica: &Node) -> Vec<NodeRange> {
+    let mut diff = vec![];
 
-use partitioner::Partitioner;
-
-pub fn build<T: Token + PartialOrd + Clone + fmt::Debug>(
-    origin: &MerkleTree<T>,
-    replica: &MerkleTree<T>,
-    p: &Partitioner<Token = T>,
-) -> Vec<Range<T>> {
-    let ref origin_root = origin.root();
-    let ref repli_root = replica.root();
-
-    match (origin_root, repli_root) {
-        (&Node::Inner { ref range, .. }, ref r) => {
-            if let Some(rr) = r.range_in(range) {
-                let mut diff = vec![];
-                if origin_root.hash() == rr.hash() {
-                    return vec![];
-                } else {
-                    if Consistency::Non ==
-                        difference(origin_root, repli_root, &range, &mut diff, p)
-                    {
-                        println!("fully inconsistent");
-                        diff.push(range.clone());
-                        diff
-                    } else {
-                        diff
+    match origin {
+        &Node::Inner { ref range, .. } => {
+            match (origin.search_in(range), replica.search_in(range)) {
+                (Some(ll), Some(rr)) => {
+                    if !ll.is_same_digest(rr) {
+                        let ret = difference(ll, rr, range, &mut diff);
+                        if ret == Consistency::None {
+                            diff.push(range.clone())
+                        }
                     }
                 }
-            } else {
-                vec![]
+                _ => unreachable!(),     // XXX
             }
         }
-        _ => unreachable!(),
+        _ => unreachable!(),     // XXX
+    }
+
+    diff
+}
+
+fn difference(
+    left: &Node,
+    right: &Node,
+    range: &NodeRange,
+    diff: &mut Vec<NodeRange>,
+) -> Consistency {
+    match range.partition_by_mid() {
+        None => Consistency::None,
+        Some((l, r)) => {
+            let lc = inner_difference(left, right, &l, diff);
+            let rc = inner_difference(left, right, &r, diff);
+
+            match (lc, rc) {
+                (Consistency::Complete, Consistency::Complete) => Consistency::Complete,
+                (Consistency::None, Consistency::None) => Consistency::None,
+                (Consistency::None, _) => {
+                    diff.push(l.clone());
+                    Consistency::Partial
+                }
+                (_, Consistency::None) => {
+                    diff.push(r.clone());
+                    Consistency::Partial
+                }
+                (_, _) => Consistency::Partial,
+            }
+        }
     }
 }
 
@@ -44,54 +57,24 @@ pub fn build<T: Token + PartialOrd + Clone + fmt::Debug>(
 pub enum Consistency {
     Complete,
     Partial,
-    Non,
+    None,
 }
 
-fn difference<T: Token + PartialOrd + Clone + fmt::Debug>(
-    left: &Node<T>,
-    right: &Node<T>,
-    range: &Range<T>,
-    diff: &mut Vec<Range<T>>,
-    p: &Partitioner<Token = T>,
-) -> Consistency {
-    match p.call(&range) {
-        Some((ref l, ref r)) => {
-            let lc = inner_difference(left, right, l, diff, p);
-            let rc = inner_difference(left, right, r, diff, p);
 
-            match (lc, rc) {
-                (Consistency::Complete, Consistency::Complete) => Consistency::Complete,
-                (Consistency::Non, Consistency::Non) => Consistency::Non,
-                (Consistency::Non, _) => {
-                    diff.push(l.clone());
-                    Consistency::Partial
-                }
-                (_, Consistency::Non) => {
-                    diff.push(r.clone());
-                    Consistency::Partial
-                }
-                (_, _) => Consistency::Partial,
-            }
-        }
-        None => Consistency::Non,
-    }
-}
-
-fn inner_difference<T: Token + PartialOrd + Clone + fmt::Debug>(
-    left: &Node<T>,
-    right: &Node<T>,
-    range: &Range<T>,
-    diff: &mut Vec<Range<T>>,
-    p: &Partitioner<Token = T>,
+fn inner_difference(
+    left: &Node,
+    right: &Node,
+    range: &NodeRange,
+    diff: &mut Vec<NodeRange>,
 ) -> Consistency {
-    match (right.range_in(range), left.range_in(range)) {
-        (Some(ref rl), Some(ref ll)) => {
-            if rl.hash() == ll.hash() {
+    match (right.search_in(range), left.search_in(range)) {
+        (Some(rl), Some(ll)) => {
+            if rl.is_same_digest(ll) {
                 println!("{:?} is consistent", range);
                 Consistency::Complete
             } else {
                 println!("range {:?} is inconsistent", range);
-                let d = difference(left, right, range, diff, p);
+                let d = difference(left, right, range, diff);
                 println!("difference {:?}", d);
                 d
             }
@@ -100,6 +83,6 @@ fn inner_difference<T: Token + PartialOrd + Clone + fmt::Debug>(
             println!("both can't search {:?}", range);
             Consistency::Complete
         }
-        _ => Consistency::Non,
+        _ => Consistency::None,
     }
 }

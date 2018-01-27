@@ -1,9 +1,7 @@
 extern crate ring;
 
-mod digest;
-mod node;
-pub mod difference;
-pub mod partitioner;
-pub mod row_hash;
+mod digestible;
+mod difference;
 pub mod token;
+pub mod node;
 pub mod merkle_tree;

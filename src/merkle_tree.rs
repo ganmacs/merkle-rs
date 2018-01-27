@@ -1,162 +1,54 @@
-use std::ops::Range;
-use std::fmt;
-
+use node::{Node, NodeRange};
+use token::Token;
 use difference;
-use token::{IntegerToken, Token};
-use digest::Digestible;
-use row_hash::RowHash;
-use node::Node;
-use partitioner::{IPartitioner, Partitioner};
 
 #[derive(Clone, Debug)]
-pub struct MerkleTree<T: Token> {
-    root: Option<Node<T>>,
-    count: usize,
-    depth: usize,
-    range: Range<T>,
+pub struct MerkleTree {
+    root: Option<Node>,
+    tree_range: NodeRange,
 }
 
-impl<T: Token + Clone + PartialOrd + fmt::Debug> MerkleTree<T> {
-    pub fn new(range: Range<T>, depth: f64) -> Self {
-        // let size = depth.log2() as usize;
+impl MerkleTree {
+    pub fn new(range: NodeRange) -> Self {
         MerkleTree {
             root: None,
-            count: 0,
-            depth: depth as usize,
-            range: range,
+            tree_range: range,
         }
     }
 
-    pub fn build<P, V>(&mut self, partitioner: &P, rows: Vec<RowHash<T, V>>)
-    where
-        P: Partitioner<Token = T>,
-        V: Digestible,
-    {
-        self.root = Some(self.build_node(&self.range, 0, partitioner));
-        self.insert_all(rows);
+    pub fn build<T>(&mut self, rows: &Vec<(Token<T>, Vec<u8>)>) {
+        if self.root.is_none() {
+            self.root = Some(self.build_node(&self.tree_range));
+        }
+        self.insert_nodes(rows);
     }
 
-    pub fn build_node<P>(&self, range: &Range<T>, depth: usize, partitioner: &P) -> Node<T>
-    where
-        P: Partitioner<Token = T>,
-    {
-        match partitioner.call(range) {
+    fn build_node(&self, range: &NodeRange) -> Node {
+        match range.partition_by_mid() {
             None => Node::empty_leaf(),
             Some((l, r)) => {
-                // left: left <= X <= mid
-                let ll = self.build_node(&l, depth + 1, partitioner);
-                // right: mid < X <= right
-                let rr = self.build_node(&r, depth + 1, partitioner);
-                Node::new_node(l.end, range.clone(), ll, rr)
+                let ll = self.build_node(&l);
+                let rr = self.build_node(&r);
+                Node::new_node(range.clone(), ll, rr)
             }
         }
     }
 
-    pub fn insert_all<V>(&mut self, rows: Vec<RowHash<T, V>>)
-    where
-        V: Digestible,
-    {
-        for v in rows {
-            self.insert(v)
+    fn insert_nodes<T>(&mut self, rows: &Vec<(Token<T>, Vec<u8>)>) {
+        match self.root.as_mut() {
+            Some(root) => {
+                for r in rows {
+                    root.update(&r.0, &r.1)
+                }
+            }
+            None => println!("root of tree should be set"),
         }
     }
 
-    pub fn root(&self) -> Node<T> {
-        self.root.clone().unwrap()
-    }
-
-    // return Result?
-    pub fn insert<V>(&mut self, row: RowHash<T, V>)
-    where
-        V: Digestible,
-    {
-        match self.root {
-            None => (),
-            Some(ref mut v) => v.find_and_update(&row),
-        };
-    }
-
-    pub fn difference<P>(&self, other: &Self, partitioner: &P) -> Vec<Range<T>>
-    where
-        P: Partitioner<Token = T>,
-        T: fmt::Debug,
-    {
-        difference::build(self, other, partitioner)
-    }
-
-    pub fn depth(&self) -> usize {
-        self.depth
-    }
-
-    pub fn count(&self) -> usize {
-        self.count
+    pub fn difference(&self, other: &Self) -> Vec<NodeRange> {
+        match (self.root.as_ref(), other.root.as_ref()) {
+            (Some(root), Some(other)) => difference::build(root, other),
+            _ => panic!("Both merkle tree should be set"),
+        }
     }
 }
-
-#[test]
-fn test_height_of_tree() {
-    let v = IntegerToken::new(1);
-    let v2 = IntegerToken::new(2);
-    let v3 = IntegerToken::new(3);
-    let v = vec![
-        RowHash::new(v, vec![1, 2, 3]),
-        RowHash::new(v2, vec![2, 3, 4]),
-        RowHash::new(v3, vec![4, 5, 6]),
-    ];
-
-    let r = Range {
-        start: IntegerToken::new(1),
-        end: IntegerToken::new(10),
-    };
-
-    let v = MerkleTree::new(r, 5.0);
-    // v.build(&IPartitioner {});
-
-    // let v0 = vec![Token::new(1)];
-    // let v1 = vec![Token::new(1), Token::new(1), Token::new(2), Token::new(3)];
-    // let v2 = vec![
-    //     Token::new(1),
-    //     Token::new(1),
-    //     Token::new(1),
-    //     Token::new(1),
-    //     Token::new(1),
-    //     Token::new(1),
-    // ];
-    // let v3 = vec![
-    //     Token::new(1),
-    //     Token::new(1),
-    //     Token::new(1),
-    //     Token::new(1),
-    //     Token::new(1),
-    //     Token::new(1),
-    //     Token::new(1),
-    //     Token::new(1),
-    // ];
-
-    // let s = Token::new(0);
-    // let e = Token::new(10000000);
-    // let r = Range { start: s, end: e };
-
-    // assert_eq!(MerkleTree::from_vec(r, v0).height(), 1, "item count is 1");
-    // assert_eq!(MerkleTree::from_vec(v1).height(), 2, "item count is 4");
-    // assert_eq!(MerkleTree::from_vec(v2).height(), 3, "item count is 6");
-    // assert_eq!(MerkleTree::from_vec(v3).height(), 3, "item count is 8");
-}
-
-// #[test]
-// fn test_checking_same_tree() {
-//     let v1 = vec![vec![1], vec![1], vec![1], vec![1], vec![1], vec![1]];
-//     let v2 = vec![vec![1], vec![1], vec![1], vec![1], vec![1], vec![1]];
-//     let v3 = vec![vec![1], vec![1], vec![1], vec![1], vec![1], vec![2]];
-//     let v4 = vec![vec![1], vec![1]];
-
-//     let t1 = MerkleTree::from_vec(v1);
-//     let t2 = MerkleTree::from_vec(v2);
-//     let t3 = MerkleTree::from_vec(v3);
-//     let t4 = MerkleTree::from_vec(v4);
-
-//     assert!(t1 == t1);
-//     assert!(t1 == t2);
-//     assert!(t1 != t3);
-//     assert!(t1 != t4);
-// }
