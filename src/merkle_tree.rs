@@ -1,5 +1,7 @@
 use std::ops::Range;
+use std::fmt;
 
+use difference;
 use token::{IntegerToken, Token};
 use digest::Digestible;
 use row_hash::RowHash;
@@ -7,14 +9,14 @@ use node::Node;
 use partitioner::{IPartitioner, Partitioner};
 
 #[derive(Clone, Debug)]
-pub struct MerkleTree<T> {
+pub struct MerkleTree<T: Token> {
     root: Option<Node<T>>,
     count: usize,
     depth: usize,
     range: Range<T>,
 }
 
-impl<T: Token + Clone + PartialOrd> MerkleTree<T> {
+impl<T: Token + Clone + PartialOrd + fmt::Debug> MerkleTree<T> {
     pub fn new(range: Range<T>, depth: f64) -> Self {
         // let size = depth.log2() as usize;
         MerkleTree {
@@ -25,9 +27,10 @@ impl<T: Token + Clone + PartialOrd> MerkleTree<T> {
         }
     }
 
-    pub fn build<P>(mut self, partitioner: &P)
+    pub fn build<P, V>(&mut self, partitioner: &P, rows: Vec<RowHash<T, V>>)
     where
         P: Partitioner<Token = T>,
+        V: Digestible,
     {
         self.root = Some(self.build_node(&self.range, 0, partitioner));
         self.insert_all(rows);
@@ -58,6 +61,10 @@ impl<T: Token + Clone + PartialOrd> MerkleTree<T> {
         }
     }
 
+    pub fn root(&self) -> Node<T> {
+        self.root.clone().unwrap()
+    }
+
     // return Result?
     pub fn insert<V>(&mut self, row: RowHash<T, V>)
     where
@@ -67,6 +74,14 @@ impl<T: Token + Clone + PartialOrd> MerkleTree<T> {
             None => (),
             Some(ref mut v) => v.find_and_update(&row),
         };
+    }
+
+    pub fn difference<P>(&self, other: &Self, partitioner: &P) -> Vec<Range<T>>
+    where
+        P: Partitioner<Token = T>,
+        T: fmt::Debug,
+    {
+        difference::build(self, other, partitioner)
     }
 
     pub fn depth(&self) -> usize {
@@ -95,7 +110,7 @@ fn test_height_of_tree() {
     };
 
     let v = MerkleTree::new(r, 5.0);
-    v.build(&IPartitioner {});
+    // v.build(&IPartitioner {});
 
     // let v0 = vec![Token::new(1)];
     // let v1 = vec![Token::new(1), Token::new(1), Token::new(2), Token::new(3)];

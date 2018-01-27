@@ -1,4 +1,5 @@
 use std::cmp::Ordering;
+use std::fmt;
 
 pub trait Token {
     type V;
@@ -7,6 +8,12 @@ pub trait Token {
     fn midpoint(&self, other: &Self) -> Self
     where
         Self: Sized;
+}
+
+impl<T> fmt::Debug for Token<V = T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Token({:?})", self.value())
+    }
 }
 
 impl<T> PartialOrd for Token<V = T> {
@@ -21,7 +28,7 @@ impl<T> PartialEq for Token<V = T> {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, PartialOrd)]
+#[derive(Clone, PartialEq, PartialOrd)]
 pub struct IntegerToken {
     value: u64,
 }
@@ -44,6 +51,11 @@ impl Token for IntegerToken {
     }
 }
 
+impl fmt::Debug for IntegerToken {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Token({:?})", self.value())
+    }
+}
 
 #[test]
 fn test_integer_cmp() {
